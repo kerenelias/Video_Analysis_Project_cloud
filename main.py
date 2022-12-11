@@ -109,6 +109,22 @@ def process_image(file, context):
 
 # [END functions_ocr_process]
 
+# [START functions_sort_by_type]
+def sort_by_type(event, context):
+    file = event
+    split_file = os.path.splitext(file)
+    file_type = split_file[-1]
+    
+    # Check if the file is of image type
+    if file_type in ['.png','.jpeg']:
+        process_image(event,context)
+
+    # Check if the file is of video type
+    elif file_type in ['.mp4']:
+        pass
+
+
+# [END functions_sort_by_type]
 
 # [START functions_ocr_translate]
 def translate_text(event, context):
