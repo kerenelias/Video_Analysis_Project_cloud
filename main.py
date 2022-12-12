@@ -21,6 +21,7 @@ from google.cloud import storage
 from google.cloud import translate_v2 as translate
 from google.cloud import vision
 from google.cloud import speech
+from google.cloud import texttospeech
 
 vision_client = vision.ImageAnnotatorClient()
 translate_client = translate.Client()
@@ -201,6 +202,38 @@ def transcribe_file_with_multichannel(speech_file):
         print(u"Channel Tag: {}".format(result.channel_tag))
 # [END speech_transcribe_multichannel]
 
+# [START tts_synthesize_text_file]
+def synthesize_text_file(text_file):
+    """Synthesizes speech from the input file of text."""
+
+    client = texttospeech.TextToSpeechClient()
+
+    with open(text_file, "r") as f:
+        text = f.read()
+        input_text = texttospeech.SynthesisInput(text=text)
+
+    # Note: the voice can also be specified by name.
+    # Names of voices can be retrieved with client.list_voices().
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US", ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    response = client.synthesize_speech(
+        request={"input": input_text, "voice": voice, "audio_config": audio_config}
+    )
+
+    # The response's audio_content is binary.
+    with open("output.mp3", "wb") as out:
+        out.write(response.audio_content)
+        print('Audio content written to file "output.mp3"')
+
+
+# [END tts_synthesize_text_file]
+
 # [START functions_storage_trigger_func]
 def storage_trigger_func(event, context):
     file = event
@@ -219,6 +252,11 @@ def storage_trigger_func(event, context):
         # Check if the file is audio 
         elif file_type in ['.mp3']:
             transcribe_file_with_multichannel(event)
+        
+        # Check if the file is text 
+        elif file_type == '.txt':
+            synthesize_text_file(event)
+
 
     except TypeError:
         print("Only files are allowed")
