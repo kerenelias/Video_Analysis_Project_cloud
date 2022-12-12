@@ -20,6 +20,7 @@ from google.cloud import pubsub_v1
 from google.cloud import storage
 from google.cloud import translate_v2 as translate
 from google.cloud import vision
+from google.cloud import speech
 
 vision_client = vision.ImageAnnotatorClient()
 translate_client = translate.Client()
@@ -109,22 +110,6 @@ def process_image(file, context):
 
 # [END functions_ocr_process]
 
-# [START functions_sort_by_type]
-def sort_by_type(event, context):
-    file = event
-    split_file = os.path.splitext(file)
-    file_type = split_file[-1]
-    
-    # Check if the file is of image type
-    if file_type in ['.png','.jpeg']:
-        process_image(event,context)
-
-    # Check if the file is of video type
-    elif file_type in ['.mp4']:
-        pass
-
-
-# [END functions_sort_by_type]
 
 # [START functions_ocr_translate]
 def translate_text(event, context):
@@ -183,5 +168,59 @@ def save_result(event, context):
 
     print("File saved.")
 
-
 # [END functions_ocr_save]
+
+
+# [START speech_transcribe_multichannel]
+def transcribe_file_with_multichannel(speech_file):
+    """Transcribe the given audio file synchronously with
+    multi channel."""
+
+    client = speech.SpeechClient()
+
+    with open(speech_file, "rb") as audio_file:
+        content = audio_file.read()
+
+    audio = speech.RecognitionAudio(content=content)
+
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=44100,
+        language_code="en-US",
+        audio_channel_count=2,
+        enable_separate_recognition_per_channel=True,
+    )
+
+    response = client.recognize(config=config, audio=audio)
+
+    for i, result in enumerate(response.results):
+        alternative = result.alternatives[0]
+        print("-" * 20)
+        print("First alternative of result {}".format(i))
+        print(u"Transcript: {}".format(alternative.transcript))
+        print(u"Channel Tag: {}".format(result.channel_tag))
+# [END speech_transcribe_multichannel]
+
+# [START functions_storage_trigger_func]
+def storage_trigger_func(event, context):
+    file = event
+    split_file = os.path.splitext(file)
+    file_type = split_file[-1]
+    
+    try:
+        # Check if the file is image 
+        if file_type in ['.png','.jpeg']:
+            process_image(event,context)
+
+        # Check if the file is video
+        elif file_type in ['.mp4']:
+            pass
+        
+        # Check if the file is audio 
+        elif file_type in ['.mp3']:
+            transcribe_file_with_multichannel(event)
+
+    except TypeError:
+        print("Only files are allowed")
+
+# [END functions_storage_trigger_func]
