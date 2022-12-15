@@ -1,17 +1,4 @@
-# Copyright 2018, Google, LLC.
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# [START functions_ocr_setup]
+# [import]
 import base64
 import json
 import os
@@ -22,14 +9,15 @@ from google.cloud import translate_v2 as translate
 from google.cloud import vision
 from google.cloud import speech
 from google.cloud import texttospeech
+from google.cloud import videointelligence
 
 vision_client = vision.ImageAnnotatorClient()
 translate_client = translate.Client()
 publisher = pubsub_v1.PublisherClient()
 storage_client = storage.Client()
 
-project_id = os.environ["GCP_PROJECT"]
-# [END functions_ocr_setup]
+project_id = os.environ["video-analysis-project-370709"]
+# [import]
 
 # [START functions_ocr_detect]
 def detect_text(bucket, filename):
@@ -158,7 +146,7 @@ def save_result(event, context):
 
     print("Received request to save file {}.".format(filename))
 
-    bucket_name = os.environ["RESULT_BUCKET"]
+    bucket_name = os.environ["result_videointelligence"]
     result_filename = "{}_{}.txt".format(filename, lang)
     bucket = storage_client.get_bucket(bucket_name)
     blob = bucket.blob(result_filename)
@@ -234,9 +222,73 @@ def synthesize_text_file(text_file):
 
 # [END tts_synthesize_text_file]
 
+
+# # [START videointelligence_func]
+def videointelligence_func(event, context):
+    """Triggered by a change to a Cloud Storage bucket.
+    Args:
+         event (dict): Event payload.
+         context (google.cloud.functions.Context): Metadata for the event.
+
+    All Video Intelligence API features run on a video stored on GCS.
+    """
+
+    gcs_uri = "gs://transfer_from_on-prem/"+event["name"]
+
+    output_uri = "gs://result_videointelligence/output - {}.json".format(event["name"])
+    
+    video_client = videointelligence.VideoIntelligenceServiceClient()
+
+    features = [
+        videointelligence.Feature.OBJECT_TRACKING,
+        videointelligence.Feature.LABEL_DETECTION,
+        videointelligence.Feature.SHOT_CHANGE_DETECTION,
+        videointelligence.Feature.SPEECH_TRANSCRIPTION,
+        videointelligence.Feature.LOGO_RECOGNITION,
+        videointelligence.Feature.EXPLICIT_CONTENT_DETECTION,
+        videointelligence.Feature.TEXT_DETECTION,
+        videointelligence.Feature.FACE_DETECTION,
+        videointelligence.Feature.PERSON_DETECTION
+    ]
+
+    transcript_config = videointelligence.SpeechTranscriptionConfig(
+        language_code="en-US", enable_automatic_punctuation=True
+    )
+
+    person_config = videointelligence.PersonDetectionConfig(
+        include_bounding_boxes=True,
+        include_attributes=False,
+        include_pose_landmarks=True,
+    )
+
+    face_config = videointelligence.FaceDetectionConfig(
+        include_bounding_boxes=True, include_attributes=True
+    )
+
+
+    video_context = videointelligence.VideoContext(
+        speech_transcription_config=transcript_config,
+        person_detection_config=person_config,
+        face_detection_config=face_config)
+
+    operation = video_client.annotate_video(
+        request={"features": features,
+                "input_uri": gcs_uri,
+                "output_uri": output_uri,
+                "video_context": video_context}
+    )
+
+    print("\nProcessing video.", operation)
+
+    result = operation.result(timeout=300)
+
+    print("\n finnished processing.")
+
+# [END videointelligence_func]
+
 # [START functions_storage_trigger_func]
 def storage_trigger_func(event, context):
-    file = event
+    file = event['name']
     split_file = os.path.splitext(file)
     file_type = split_file[-1]
     
@@ -246,11 +298,11 @@ def storage_trigger_func(event, context):
             process_image(event,context)
 
         # Check if the file is video
-        elif file_type in ['.mp4']:
-            pass
+        elif file_type == '.mp4':
+            videointelligence_func(event,context)
         
         # Check if the file is audio 
-        elif file_type in ['.mp3']:
+        elif file_type == '.mp3':
             transcribe_file_with_multichannel(event)
         
         # Check if the file is text 
