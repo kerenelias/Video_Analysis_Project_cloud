@@ -1,8 +1,33 @@
 # [import]
 import os
 from google.cloud import videointelligence
+from google.cloud import storage
+from google.cloud.storage import Blob
 
-# # [START videointelligence_func]
+# [START transfer_files_to_result_bucket_func]
+def transfer_files_to_result_bucket(event,context):
+    file = event
+    file_name = file['name']
+
+    storage_client = storage.Client(project='video-analysis-project-370709')
+    source_bucket = storage_client.get_bucket('transfer_from_on-prem')
+    destination_bucket = storage_client.get_bucket('result_videointelligence')
+
+    blobs=list(source_bucket.list_blobs(prefix=''))
+    print(blobs)
+
+    for blob in blobs:
+        if blob.name == file_name:
+            source_blob = source_bucket.blob(blob.name)
+            new_blob = source_bucket.copy_blob(source_blob, destination_bucket, blob.name) 
+            source_blob.delete()
+            print (f'File moved from {source_blob} to {new_blob}')
+        else:
+            print ('File size is below IMB"')
+# [END transfer_files_to_result_bucket_func]
+
+
+# [START videointelligence_func]
 def videointelligence_func(event, context):
     """Triggered by a change to a Cloud Storage bucket.
     Args:
@@ -62,6 +87,8 @@ def videointelligence_func(event, context):
     result = operation.result(timeout=300)
 
     print("\n finnished processing.")
+
+    transfer_files_to_result_bucket(event,context)
 # [END videointelligence_func]
 
 # [START functions_storage_trigger_func]
