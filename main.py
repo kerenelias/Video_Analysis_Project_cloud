@@ -9,19 +9,19 @@ def transfer_files_to_result_bucket(event,context):
     file = event
     file_name = file['name']
 
-    storage_client = storage.Client(project='video-analysis-project-370709')
+    storage_client = storage.Client()
     source_bucket = storage_client.get_bucket('transfer_from_on-prem')
     destination_bucket = storage_client.get_bucket('result_videointelligence')
-
-    blobs=list(source_bucket.list_blobs(prefix=''))
+    
+    blobs=list(source_bucket.list_blobs())
     print(blobs)
 
     for blob in blobs:
         if blob.name == file_name:
             source_blob = source_bucket.blob(blob.name)
             new_blob = source_bucket.copy_blob(source_blob, destination_bucket, blob.name) 
-            source_blob.delete()
             print (f'File moved from {source_blob} to {new_blob}')
+            source_blob.delete()
         else:
             print ('File size is below IMB"')
 # [END transfer_files_to_result_bucket_func]
@@ -84,12 +84,13 @@ def videointelligence_func(event, context):
 
     print("\nProcessing video.", operation)
 
+    transfer_files_to_result_bucket(event,context)
+
     result = operation.result(timeout=300)
 
-    print("\n finnished processing.")
-
-    transfer_files_to_result_bucket(event,context)
+    print("\n finnished processing.")  
 # [END videointelligence_func]
+
 
 # [START functions_storage_trigger_func]
 def storage_trigger_func(event, context):
