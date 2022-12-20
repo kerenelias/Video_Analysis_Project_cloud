@@ -9,7 +9,7 @@ def transfer_files_to_result_bucket(event,context):
     file = event
     file_name = file['name']
 
-    storage_client = storage.Client()
+    storage_client = storage.Client(project='video-analysis-project-370709')
     source_bucket = storage_client.get_bucket('transfer_from_on-prem')
     destination_bucket = storage_client.get_bucket('result_videointelligence')
     
@@ -23,7 +23,7 @@ def transfer_files_to_result_bucket(event,context):
             print (f'File moved from {source_blob} to {new_blob}')
             source_blob.delete()
         else:
-            print ('File size is below IMB"')
+            print ('File Does not exist"')
 # [END transfer_files_to_result_bucket_func]
 
 
@@ -84,9 +84,9 @@ def videointelligence_func(event, context):
 
     print("\nProcessing video.", operation)
 
-    transfer_files_to_result_bucket(event,context)
-
     result = operation.result(timeout=300)
+
+    transfer_files_to_result_bucket(event,context)
 
     print("\n finnished processing.")  
 # [END videointelligence_func]
