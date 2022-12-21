@@ -9,7 +9,7 @@ def transfer_files_to_result_bucket(event,context):
     file = event
     file_name = file['name']
 
-    storage_client = storage.Client(project='video-analysis-project-370709')
+    storage_client = storage.Client()
     source_bucket = storage_client.get_bucket('transfer_from_on-prem')
     destination_bucket = storage_client.get_bucket('result_videointelligence')
     
@@ -36,10 +36,13 @@ def videointelligence_func(event, context):
 
     All Video Intelligence API features run on a video stored on GCS.
     """
+    file_name = event["name"]
+    split_file = os.path.splitext(file_name)
+    file_text_name = split_file[0]
 
-    gcs_uri = "gs://transfer_from_on-prem/"+event["name"]
+    gcs_uri = "gs://result_videointelligence/"+file_name
 
-    output_uri = "gs://result_videointelligence/output - {}.json".format(event["name"])
+    output_uri = "gs://result_videointelligence/output-{}.json".format(file_text_name)
     
     video_client = videointelligence.VideoIntelligenceServiceClient()
 
@@ -85,9 +88,7 @@ def videointelligence_func(event, context):
     print("\nProcessing video.", operation)
 
     result = operation.result(timeout=300)
-
-    transfer_files_to_result_bucket(event,context)
-
+    
     print("\n finnished processing.")  
 # [END videointelligence_func]
 
@@ -100,6 +101,7 @@ def storage_trigger_func(event, context):
     try:
         # Check if the file is video
         if file_type == '.mp4':
+            transfer_files_to_result_bucket(event,context)
             videointelligence_func(event,context)
 
     except TypeError:
