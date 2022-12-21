@@ -42,7 +42,7 @@ def videointelligence_func(event, context):
 
     gcs_uri = "gs://result_videointelligence/"+file_name
 
-    output_uri = "gs://result_videointelligence/output-{}.json".format(file_text_name)
+    output_uri = "gs://result_videointelligence/{}.json".format(file_text_name)
     
     video_client = videointelligence.VideoIntelligenceServiceClient()
 
@@ -88,7 +88,7 @@ def videointelligence_func(event, context):
     print("\nProcessing video.", operation)
 
     result = operation.result(timeout=300)
-    
+
     print("\n finnished processing.")  
 # [END videointelligence_func]
 
